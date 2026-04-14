@@ -63,11 +63,12 @@ export function LandmarkEditor({
 
         const result = await detectLandmarks(img);
         if (!result?.landmarks) throw new Error("No face detected");
+        const positions = (result.landmarks as { positions: Array<{ x: number; y: number }> }).positions;
 
         const mapped =
           mode === "front"
-            ? buildFrontLandmarks(result.landmarks.positions)
-            : buildSideLandmarks(result.landmarks.positions);
+            ? buildFrontLandmarks(positions)
+            : buildSideLandmarks(positions);
 
         if (!mounted) return;
         setPoints(mapped);
@@ -177,7 +178,8 @@ export function LandmarkEditor({
       setImageEl(img);
       const result = await detectLandmarks(img);
       if (!result?.landmarks) throw new Error("No face");
-      const mapped = mode === "front" ? buildFrontLandmarks(result.landmarks.positions) : buildSideLandmarks(result.landmarks.positions);
+      const positions = (result.landmarks as { positions: Array<{ x: number; y: number }> }).positions;
+      const mapped = mode === "front" ? buildFrontLandmarks(positions) : buildSideLandmarks(positions);
       setPoints(mapped);
       onChange(mapped);
     } catch {
