@@ -46,6 +46,7 @@ export async function detectLandmarks(image: HTMLImageElement, mode: "front" | "
     enhanceForDetection(image, true),
     createMirroredVariant(image),
     createCroppedVariant(image, mode),
+    ...(mode === "side" ? [createRotatedVariant(image, -10), createRotatedVariant(image, 10)] : []),
   ];
 
   const tinyAttempts = [
@@ -124,5 +125,19 @@ function createCroppedVariant(image: HTMLImageElement, mode: "front" | "side") {
   const cropH = image.height * 0.9;
 
   ctx.drawImage(image, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+function createRotatedVariant(image: HTMLImageElement, degrees: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return image;
+
+  const radians = (degrees * Math.PI) / 180;
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(radians);
+  ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
   return canvas;
 }

@@ -40,6 +40,7 @@ export default function CapturePage() {
             key="front-camera"
             instruction="Neutral expression, look straight at camera, even lighting"
             existingImage={frontPhoto}
+            mode="front"
             onCapture={(img) => setPhoto("front", img)}
           />
         ) : (
@@ -47,6 +48,7 @@ export default function CapturePage() {
             key="side-camera"
             instruction="Perfect 90° profile, look straight ahead, relaxed"
             existingImage={sidePhoto}
+            mode="side"
             onCapture={(img) => setPhoto("side", img)}
           />
         )}

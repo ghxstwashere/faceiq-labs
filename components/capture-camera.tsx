@@ -9,10 +9,12 @@ export function CaptureCamera({
   instruction,
   onCapture,
   existingImage,
+  mode,
 }: {
   instruction: string;
   onCapture: (image: string) => void;
   existingImage: string | null;
+  mode: "front" | "side";
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [streaming, setStreaming] = useState(false);
@@ -65,11 +67,24 @@ export function CaptureCamera({
   return (
     <div className="space-y-4">
       <p className="text-sm text-zinc-300">{instruction}</p>
-      <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950">
+      <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-white/45 bg-white/60 backdrop-blur-xl">
         {preview ? (
           <Image src={preview} alt="Captured" fill className="object-cover" unoptimized />
         ) : (
           <video ref={videoRef} className="h-[420px] w-full object-cover" playsInline muted autoPlay />
+        )}
+        {!preview && (
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-4 rounded-[1.25rem] border border-white/55" />
+            {mode === "front" ? (
+              <>
+                <div className="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-white/35" />
+                <div className="absolute top-1/2 left-4 right-4 h-px -translate-y-1/2 bg-white/25" />
+              </>
+            ) : (
+              <div className="absolute right-[26%] top-[18%] h-[64%] w-[32%] rounded-[45%_40%_40%_45%] border border-dashed border-white/55" />
+            )}
+          </div>
         )}
       </div>
 

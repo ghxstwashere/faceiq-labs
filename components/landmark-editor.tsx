@@ -37,6 +37,7 @@ export function LandmarkEditor({
   const [points, setPoints] = useState<LandmarkPoint[]>(saved);
   const [dragging, setDragging] = useState<string | null>(null);
   const [activeKey, setActiveKey] = useState<string | null>(saved[0]?.key ?? null);
+  const [showAllPoints, setShowAllPoints] = useState(false);
 
   const pointRadius = 7;
 
@@ -101,6 +102,8 @@ export function LandmarkEditor({
     };
   }, [image, mode, onChange, saved.length]);
 
+  const activePoint = points.find((p) => p.key === activeKey) ?? null;
+
   useEffect(() => {
     void loadImage(image).then(setImageEl);
   }, [image]);
@@ -117,11 +120,14 @@ export function LandmarkEditor({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(imageEl, 0, 0, canvas.width, canvas.height);
 
-    points.forEach((point) => {
-      const x = (point.x / imageEl.width) * canvas.width;
-      const y = (point.y / imageEl.height) * canvas.height;
+    const view = getViewWindow(imageEl, activePoint);
+    ctx.drawImage(imageEl, view.sx, view.sy, view.sw, view.sh, 0, 0, canvas.width, canvas.height);
+
+    const renderPoints = showAllPoints ? points : points.filter((p) => p.key === activeKey);
+    renderPoints.forEach((point) => {
+      const x = ((point.x - view.sx) / view.sw) * canvas.width;
+      const y = ((point.y - view.sy) / view.sh) * canvas.height;
       const isActive = point.key === activeKey;
 
       ctx.fillStyle = isActive ? "#f59e0b" : "#22d3ee";
@@ -141,7 +147,7 @@ export function LandmarkEditor({
       ctx.font = "11px sans-serif";
       ctx.fillText(point.label, x - 3, y + 4);
     });
-  }, [points, imageEl, imageRatio, activeKey]);
+  }, [points, imageEl, imageRatio, activeKey, showAllPoints, activePoint]);
 
   const eventToCanvasPoint = (evt: PointerEvent | React.PointerEvent) => {
     const canvas = canvasRef.current;
@@ -158,9 +164,11 @@ export function LandmarkEditor({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const hit = points.find((p) => {
-      const px = (p.x / imageEl.width) * canvas.width;
-      const py = (p.y / imageEl.height) * canvas.height;
+    const view = getViewWindow(imageEl, activePoint);
+    const hitCandidates = showAllPoints ? points : points.filter((p) => p.key === activeKey);
+    const hit = hitCandidates.find((p) => {
+      const px = ((p.x - view.sx) / view.sw) * canvas.width;
+      const py = ((p.y - view.sy) / view.sh) * canvas.height;
       return dist(px, py, coords.x, coords.y) <= pointRadius + 8;
     });
 
@@ -176,12 +184,13 @@ export function LandmarkEditor({
     if (!coords) return;
 
     const canvas = canvasRef.current;
+    const view = getViewWindow(imageEl, activePoint);
     const next = points.map((p) => {
       if (p.key !== dragging) return p;
       return {
         ...p,
-        x: (coords.x / canvas.width) * imageEl.width,
-        y: (coords.y / canvas.height) * imageEl.height,
+        x: view.sx + (coords.x / canvas.width) * view.sw,
+        y: view.sy + (coords.y / canvas.height) * view.sh,
       };
     });
 
@@ -239,8 +248,6 @@ export function LandmarkEditor({
     }
   };
 
-  const activePoint = points.find((p) => p.key === activeKey) ?? null;
-
   return (
     <div className="space-y-4">
       {loading && (
@@ -264,6 +271,12 @@ export function LandmarkEditor({
 
         <div className="rounded-2xl border border-white/40 bg-white/65 p-3 backdrop-blur-xl">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Point selection</p>
+          <button
+            onClick={() => setShowAllPoints((v) => !v)}
+            className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-700 transition hover:border-zinc-400"
+          >
+            {showAllPoints ? "Hide other points (focus mode)" : "Show all points"}
+          </button>
           <div className="mt-2 max-h-64 space-y-1 overflow-auto pr-1">
             {points.map((point) => (
               <button
@@ -310,4 +323,21 @@ export function LandmarkEditor({
 
 function dist(ax: number, ay: number, bx: number, by: number) {
   return Math.hypot(ax - bx, ay - by);
+}
+
+function getViewWindow(image: HTMLImageElement, activePoint: LandmarkPoint | null) {
+  if (!activePoint) {
+    return { sx: 0, sy: 0, sw: image.width, sh: image.height };
+  }
+
+  const zoom = 2.4;
+  const sw = image.width / zoom;
+  const sh = image.height / zoom;
+  const sx = clamp(activePoint.x - sw / 2, 0, image.width - sw);
+  const sy = clamp(activePoint.y - sh / 2, 0, image.height - sh);
+  return { sx, sy, sw, sh };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
 }
