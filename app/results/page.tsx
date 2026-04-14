@@ -19,19 +19,20 @@ export default function ResultsPage() {
   if (!analysis) return null;
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 px-4 py-8 sm:px-8">
-      <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Results</p>
-        <h1 className="mt-2 text-3xl font-semibold text-zinc-100 sm:text-4xl">Brutal facial report</h1>
-        <p className="mt-2 text-sm text-zinc-400">No fluff. No cope. Just numbers and consequences.</p>
-      </div>
+    <main className="mx-auto min-h-screen w-full max-w-7xl space-y-6 px-4 py-6 sm:px-8">
+      <header className="flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Analysis</p>
+          <h1 className="mt-2 text-3xl font-semibold text-zinc-900">Facial Metrics Dashboard</h1>
+          <p className="mt-1 text-sm text-zinc-500">No sugarcoating. Raw scores against benchmark averages.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => { resetLandmarks(); router.push("/landmarks"); }}>Edit Landmarks</Button>
+          <Button variant="danger" onClick={() => { resetAll(); router.push("/capture"); }}>Retake Photos</Button>
+        </div>
+      </header>
 
       <ResultsDashboard analysis={analysis} />
-
-      <div className="flex flex-wrap gap-3 pb-8">
-        <Button variant="outline" onClick={() => { resetLandmarks(); router.push("/landmarks"); }}>Edit Landmarks Again</Button>
-        <Button variant="danger" onClick={() => { resetAll(); router.push("/capture"); }}>Retake Photos</Button>
-      </div>
     </main>
   );
 }
