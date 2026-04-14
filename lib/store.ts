@@ -7,6 +7,7 @@ export type LandmarkPoint = {
   x: number;
   y: number;
   label: string;
+  name: string;
 };
 
 export type MetricResult = {

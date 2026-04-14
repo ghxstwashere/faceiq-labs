@@ -6,6 +6,7 @@ type DetectionCandidate = {
 
 let faceapi: FaceApiModule | null = null;
 let loaded = false;
+let fullModelsLoaded = false;
 
 export async function loadFaceApiModels() {
   if (loaded) return;
@@ -19,53 +20,109 @@ export async function loadFaceApiModels() {
     faceapi.nets.tinyFaceDetector.loadFromUri(modelPath),
     faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelPath),
   ]);
+
+  try {
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath),
+      faceapi.nets.faceLandmark68Net.loadFromUri(modelPath),
+    ]);
+    fullModelsLoaded = true;
+  } catch {
+    fullModelsLoaded = false;
+  }
+
   loaded = true;
 }
 
-export async function detectLandmarks(image: HTMLImageElement) {
+export async function detectLandmarks(image: HTMLImageElement, mode: "front" | "side" = "front") {
   if (!faceapi) {
     faceapi = await import("face-api.js");
   }
   if (!faceapi) return null;
 
-  const variants = [image, enhanceForDetection(image), enhanceForDetection(image, true)];
-  const attempts = [
-    { inputSize: 512, scoreThreshold: 0.2 },
-    { inputSize: 416, scoreThreshold: 0.2 },
-    { inputSize: 320, scoreThreshold: 0.15 },
+  const variants = [
+    image,
+    enhanceForDetection(image),
+    enhanceForDetection(image, true),
+    createMirroredVariant(image),
+    createCroppedVariant(image, mode),
+  ];
+
+  const tinyAttempts = [
+    { inputSize: 608, scoreThreshold: mode === "side" ? 0.1 : 0.18 },
+    { inputSize: 512, scoreThreshold: mode === "side" ? 0.08 : 0.15 },
+    { inputSize: 416, scoreThreshold: mode === "side" ? 0.08 : 0.15 },
+    { inputSize: 320, scoreThreshold: 0.05 },
   ];
 
   let best: DetectionCandidate | null = null;
 
   for (const source of variants) {
-    for (const options of attempts) {
+    for (const options of tinyAttempts) {
       const result = await faceapi
         .detectSingleFace(source, new faceapi.TinyFaceDetectorOptions(options))
         .withFaceLandmarks(true);
 
-      if (!result?.landmarks) continue;
-      if (!best || result.detection.score > best.detection.score) {
-        best = result;
-      }
-      if (result.detection.score > 0.55) {
-        return result;
-      }
+      best = pickBetter(best, result);
+      if (result?.detection.score && result.detection.score > 0.62) return result;
+    }
+
+    if (fullModelsLoaded) {
+      const result = await faceapi
+        .detectSingleFace(source, new faceapi.SsdMobilenetv1Options({ minConfidence: mode === "side" ? 0.08 : 0.15 }))
+        .withFaceLandmarks(false);
+
+      best = pickBetter(best, result);
+      if (result?.detection.score && result.detection.score > 0.62) return result;
     }
   }
 
   return best;
 }
 
-function enhanceForDetection(image: HTMLImageElement, invert = false) {
+function pickBetter(current: DetectionCandidate | null, next: DetectionCandidate | null | undefined) {
+  if (!next?.landmarks) return current;
+  if (!current) return next;
+  return next.detection.score > current.detection.score ? next : current;
+}
+
+function enhanceForDetection(image: HTMLImageElement, heavy = false) {
   const canvas = document.createElement("canvas");
   canvas.width = image.width;
   canvas.height = image.height;
   const ctx = canvas.getContext("2d");
-
   if (!ctx) return image;
 
-  // Mild contrast/luminance normalization helps side profiles and dark skin under harsh backlight.
-  ctx.filter = invert ? "grayscale(1) contrast(1.25) brightness(1.18)" : "contrast(1.2) brightness(1.1) saturate(1.05)";
+  ctx.filter = heavy ? "grayscale(1) contrast(1.45) brightness(1.22)" : "contrast(1.18) brightness(1.08) saturate(1.05)";
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+function createMirroredVariant(image: HTMLImageElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return image;
+
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+function createCroppedVariant(image: HTMLImageElement, mode: "front" | "side") {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return image;
+
+  const cropX = mode === "side" ? image.width * 0.15 : image.width * 0.08;
+  const cropY = image.height * 0.05;
+  const cropW = mode === "side" ? image.width * 0.7 : image.width * 0.84;
+  const cropH = image.height * 0.9;
+
+  ctx.drawImage(image, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
   return canvas;
 }
