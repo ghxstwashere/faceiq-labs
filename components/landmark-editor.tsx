@@ -3,7 +3,7 @@
 import { Loader2, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { buildFrontLandmarks, buildSideLandmarks } from "@/lib/landmarks";
+import { buildFallbackSideLandmarks, buildFrontLandmarks, buildSideLandmarks } from "@/lib/landmarks";
 import { detectLandmarks, loadFaceApiModels } from "@/lib/face-api";
 import type { LandmarkPoint } from "@/lib/store";
 
@@ -74,7 +74,17 @@ export function LandmarkEditor({
         setPoints(mapped);
         onChange(mapped);
       } catch {
-        setError("No face detected. Retake this shot with cleaner angle and lighting.");
+        if (!mounted) return;
+        const img = await loadImage(image);
+        setImageEl(img);
+        if (mode === "side") {
+          const fallback = buildFallbackSideLandmarks(img.width, img.height);
+          setPoints(fallback);
+          onChange(fallback);
+          setError("Side profile auto-detect failed. Loaded fallback points so you can drag and continue.");
+        } else {
+          setError("No face detected. Retake this shot with cleaner angle and lighting.");
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -183,7 +193,18 @@ export function LandmarkEditor({
       setPoints(mapped);
       onChange(mapped);
     } catch {
-      setError("Auto-detect failed. Retake if the model keeps choking.");
+      if (!imageEl) {
+        setError("Auto-detect failed. Retake if the model keeps choking.");
+        return;
+      }
+      if (mode === "side") {
+        const fallback = buildFallbackSideLandmarks(imageEl.width, imageEl.height);
+        setPoints(fallback);
+        onChange(fallback);
+        setError("Auto-detect failed again. Fallback side landmarks loaded; adjust and continue.");
+      } else {
+        setError("Auto-detect failed. Retake if the model keeps choking.");
+      }
     } finally {
       setLoading(false);
     }

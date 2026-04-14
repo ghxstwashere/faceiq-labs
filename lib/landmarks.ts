@@ -57,3 +57,23 @@ export function buildSideLandmarks(points: RawPoint[]): LandmarkPoint[] {
     { key: "lower_lip", label: "12", ...pick(points, 66) },
   ];
 }
+
+export function buildFallbackSideLandmarks(width: number, height: number): LandmarkPoint[] {
+  const cx = width * 0.52;
+  const top = height * 0.26;
+
+  return [
+    { key: "glabella", label: "1", x: cx - width * 0.06, y: top },
+    { key: "nasion", label: "2", x: cx - width * 0.045, y: top + height * 0.045 },
+    { key: "pronasale", label: "3", x: cx + width * 0.055, y: top + height * 0.10 },
+    { key: "subnasale", label: "4", x: cx + width * 0.03, y: top + height * 0.16 },
+    { key: "labrale_superior", label: "5", x: cx + width * 0.015, y: top + height * 0.205 },
+    { key: "labrale_inferior", label: "6", x: cx + width * 0.01, y: top + height * 0.245 },
+    { key: "soft_tissue_pogonion", label: "7", x: cx + width * 0.04, y: top + height * 0.34 },
+    { key: "gonion", label: "8", x: cx - width * 0.02, y: top + height * 0.365 },
+    { key: "tragion", label: "9", x: cx - width * 0.12, y: top + height * 0.19 },
+    { key: "orbitale", label: "10", x: cx - width * 0.01, y: top + height * 0.09 },
+    { key: "upper_lip", label: "11", x: cx + width * 0.012, y: top + height * 0.208 },
+    { key: "lower_lip", label: "12", x: cx + width * 0.01, y: top + height * 0.25 },
+  ];
+}

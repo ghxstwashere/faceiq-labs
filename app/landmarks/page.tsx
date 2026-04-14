@@ -42,6 +42,16 @@ export default function LandmarkPage() {
     router.push("/results");
   };
 
+  const confirmFront = () => {
+    setConfirmed("front", true);
+    setTab("side");
+  };
+
+  const confirmSide = () => {
+    setConfirmed("side", true);
+    submit();
+  };
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-6 px-4 py-8 sm:px-8">
       <div className="space-y-2">
@@ -64,7 +74,7 @@ export default function LandmarkPage() {
             mode="front"
             saved={frontLandmarks}
             onChange={(pts) => setLandmarks("front", pts)}
-            onConfirm={() => setConfirmed("front", true)}
+            onConfirm={confirmFront}
           />
         )}
 
@@ -74,14 +84,14 @@ export default function LandmarkPage() {
             mode="side"
             saved={sideLandmarks}
             onChange={(pts) => setLandmarks("side", pts)}
-            onConfirm={() => setConfirmed("side", true)}
+            onConfirm={confirmSide}
           />
         )}
       </Card>
 
       <div className="flex flex-wrap gap-3">
         <Button variant="outline" onClick={() => router.push("/capture")}>Retake Photos</Button>
-        <Button onClick={submit} disabled={!frontConfirmed || !sideConfirmed}>
+        <Button onClick={submit} disabled={frontLandmarks.length === 0 || sideLandmarks.length === 0}>
           <FlaskConical className="mr-2 h-4 w-4" /> Run Brutal Analysis
         </Button>
       </div>
