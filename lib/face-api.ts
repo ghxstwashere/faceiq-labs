@@ -59,6 +59,17 @@ export async function detectLandmarks(image: HTMLImageElement, mode: "front" | "
   let best: DetectionCandidate | null = null;
 
   for (const source of variants) {
+    if (mode === "side") {
+      for (const options of tinyAttempts) {
+        const allTiny = await faceapi
+          .detectAllFaces(source, new faceapi.TinyFaceDetectorOptions(options))
+          .withFaceLandmarks(true);
+        const topTiny = allTiny.sort((a, b) => b.detection.score - a.detection.score)[0];
+        best = pickBetter(best, topTiny);
+        if (topTiny?.detection.score && topTiny.detection.score > 0.58) return topTiny;
+      }
+    }
+
     for (const options of tinyAttempts) {
       const result = await faceapi
         .detectSingleFace(source, new faceapi.TinyFaceDetectorOptions(options))
@@ -69,6 +80,15 @@ export async function detectLandmarks(image: HTMLImageElement, mode: "front" | "
     }
 
     if (fullModelsLoaded) {
+      if (mode === "side") {
+        const allSsd = await faceapi
+          .detectAllFaces(source, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.06 }))
+          .withFaceLandmarks(false);
+        const topSsd = allSsd.sort((a, b) => b.detection.score - a.detection.score)[0];
+        best = pickBetter(best, topSsd);
+        if (topSsd?.detection.score && topSsd.detection.score > 0.58) return topSsd;
+      }
+
       const result = await faceapi
         .detectSingleFace(source, new faceapi.SsdMobilenetv1Options({ minConfidence: mode === "side" ? 0.08 : 0.15 }))
         .withFaceLandmarks(false);

@@ -31,7 +31,7 @@ export default function CapturePage() {
       <div className="flex gap-2 text-sm">
         <span className={step === "front" ? "text-cyan-300" : "text-zinc-500"}>Front</span>
         <span className="text-zinc-600">•</span>
-        <span className={step === "side" ? "text-cyan-300" : "text-zinc-500"}>Side</span>
+        <span className={step === "side" ? "text-cyan-300" : "text-zinc-500"}>90° Profile</span>
       </div>
 
       <Card>
@@ -60,7 +60,7 @@ export default function CapturePage() {
         )}
 
         {step === "front" ? (
-          <Button onClick={() => setStep("side")} disabled={!frontPhoto}>Next: Side Photo</Button>
+          <Button onClick={() => setStep("side")} disabled={!frontPhoto}>Next: 90° Profile</Button>
         ) : (
           <Button onClick={() => router.push("/landmarks")} disabled={!frontPhoto || !sidePhoto}>
             Continue to Landmarks <ArrowRight className="ml-2 h-4 w-4" />

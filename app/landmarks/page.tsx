@@ -63,7 +63,7 @@ export default function LandmarkPage() {
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
             <TabButton active={tab === "front"} label="Front Photo" onClick={() => setTab("front")} />
-            <TabButton active={tab === "side"} label="Side Photo" onClick={() => setTab("side")} />
+            <TabButton active={tab === "side"} label="90° Profile" onClick={() => setTab("side")} />
           </div>
           <div className="text-xs text-zinc-400">Drag dots to correct bad placements.</div>
         </div>

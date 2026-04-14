@@ -120,14 +120,12 @@ export function LandmarkEditor({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const view = getViewWindow(imageEl, activePoint);
-    ctx.drawImage(imageEl, view.sx, view.sy, view.sw, view.sh, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(imageEl, 0, 0, canvas.width, canvas.height);
 
     const renderPoints = showAllPoints ? points : points.filter((p) => p.key === activeKey);
     renderPoints.forEach((point) => {
-      const x = ((point.x - view.sx) / view.sw) * canvas.width;
-      const y = ((point.y - view.sy) / view.sh) * canvas.height;
+      const x = (point.x / imageEl.width) * canvas.width;
+      const y = (point.y / imageEl.height) * canvas.height;
       const isActive = point.key === activeKey;
 
       ctx.fillStyle = isActive ? "#f59e0b" : "#22d3ee";
@@ -147,7 +145,7 @@ export function LandmarkEditor({
       ctx.font = "11px sans-serif";
       ctx.fillText(point.label, x - 3, y + 4);
     });
-  }, [points, imageEl, imageRatio, activeKey, showAllPoints, activePoint]);
+  }, [points, imageEl, imageRatio, activeKey, showAllPoints]);
 
   const eventToCanvasPoint = (evt: PointerEvent | React.PointerEvent) => {
     const canvas = canvasRef.current;
@@ -164,11 +162,10 @@ export function LandmarkEditor({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const view = getViewWindow(imageEl, activePoint);
     const hitCandidates = showAllPoints ? points : points.filter((p) => p.key === activeKey);
     const hit = hitCandidates.find((p) => {
-      const px = ((p.x - view.sx) / view.sw) * canvas.width;
-      const py = ((p.y - view.sy) / view.sh) * canvas.height;
+      const px = (p.x / imageEl.width) * canvas.width;
+      const py = (p.y / imageEl.height) * canvas.height;
       return dist(px, py, coords.x, coords.y) <= pointRadius + 8;
     });
 
@@ -184,13 +181,12 @@ export function LandmarkEditor({
     if (!coords) return;
 
     const canvas = canvasRef.current;
-    const view = getViewWindow(imageEl, activePoint);
     const next = points.map((p) => {
       if (p.key !== dragging) return p;
       return {
         ...p,
-        x: view.sx + (coords.x / canvas.width) * view.sw,
-        y: view.sy + (coords.y / canvas.height) * view.sh,
+        x: (coords.x / canvas.width) * imageEl.width,
+        y: (coords.y / canvas.height) * imageEl.height,
       };
     });
 
@@ -248,6 +244,14 @@ export function LandmarkEditor({
     }
   };
 
+  const zoomStyle = activePoint
+    ? {
+        backgroundImage: `url(${image})`,
+        backgroundSize: "250% 250%",
+        backgroundPosition: `${(activePoint.x / (imageEl?.width ?? 1)) * 100}% ${(activePoint.y / (imageEl?.height ?? 1)) * 100}%`,
+      }
+    : undefined;
+
   return (
     <div className="space-y-4">
       {loading && (
@@ -257,7 +261,7 @@ export function LandmarkEditor({
       )}
       {error && <p className="text-sm text-rose-600">{error}</p>}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         <div className="overflow-hidden rounded-2xl border border-white/40 bg-white/55 backdrop-blur-xl">
           <canvas
             ref={canvasRef}
@@ -277,7 +281,7 @@ export function LandmarkEditor({
           >
             {showAllPoints ? "Hide other points (focus mode)" : "Show all points"}
           </button>
-          <div className="mt-2 max-h-64 space-y-1 overflow-auto pr-1">
+          <div className="mt-2 max-h-52 space-y-1 overflow-auto pr-1">
             {points.map((point) => (
               <button
                 key={point.key}
@@ -298,11 +302,15 @@ export function LandmarkEditor({
             <div className="mt-3 space-y-2 rounded-lg border border-zinc-200 bg-white p-2.5 text-xs text-zinc-600">
               <p className="font-semibold text-zinc-800">Active: {activePoint.name}</p>
               <p>x: {Math.round(activePoint.x)} | y: {Math.round(activePoint.y)}</p>
+              <div className="relative h-28 overflow-hidden rounded-lg border border-zinc-200" style={zoomStyle}>
+                <div className="absolute inset-0 border-2 border-amber-400/70" />
+                <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, -2)}>Up</Button>
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, 2)}>Down</Button>
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(-2, 0)}>Left</Button>
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(2, 0)}>Right</Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, -1)}>Up</Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, 1)}>Down</Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(-1, 0)}>Left</Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(1, 0)}>Right</Button>
               </div>
             </div>
           )}
@@ -323,21 +331,4 @@ export function LandmarkEditor({
 
 function dist(ax: number, ay: number, bx: number, by: number) {
   return Math.hypot(ax - bx, ay - by);
-}
-
-function getViewWindow(image: HTMLImageElement, activePoint: LandmarkPoint | null) {
-  if (!activePoint) {
-    return { sx: 0, sy: 0, sw: image.width, sh: image.height };
-  }
-
-  const zoom = 2.4;
-  const sw = image.width / zoom;
-  const sh = image.height / zoom;
-  const sx = clamp(activePoint.x - sw / 2, 0, image.width - sw);
-  const sy = clamp(activePoint.y - sh / 2, 0, image.height - sh);
-  return { sx, sy, sw, sh };
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
 }
