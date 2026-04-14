@@ -21,13 +21,6 @@ export default function CapturePage() {
     if (!gender) router.replace("/");
   }, [gender, router]);
 
-  useEffect(() => {
-    if (step === "side") {
-      // Always force a fresh side profile shot instead of reusing old side photo state.
-      setPhoto("side", null);
-    }
-  }, [setPhoto, step]);
-
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 px-4 py-8 sm:px-8">
       <div className="space-y-2">
@@ -44,14 +37,16 @@ export default function CapturePage() {
       <Card>
         {step === "front" ? (
           <CaptureCamera
+            key="front-camera"
             instruction="Neutral expression, look straight at camera, even lighting"
             existingImage={frontPhoto}
             onCapture={(img) => setPhoto("front", img)}
           />
         ) : (
           <CaptureCamera
+            key="side-camera"
             instruction="Perfect 90° profile, look straight ahead, relaxed"
-            existingImage={null}
+            existingImage={sidePhoto}
             onCapture={(img) => setPhoto("side", img)}
           />
         )}
