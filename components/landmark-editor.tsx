@@ -40,7 +40,7 @@ export function LandmarkEditor({
   const [showAllPoints, setShowAllPoints] = useState(false);
 
   const [enhanceVisibility, setEnhanceVisibility] = useState(true);
-  const [zoomToActive, setZoomToActive] = useState(true);
+  const [zoomToActive, setZoomToActive] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1.8);
   const [nudgeStep, setNudgeStep] = useState(6);
 
@@ -316,12 +316,14 @@ export function LandmarkEditor({
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Visibility & controls</p>
           <div className="mt-2 grid gap-2">
             <button
+              type="button"
               onClick={() => setEnhanceVisibility((v) => !v)}
               className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-700 transition hover:border-zinc-400"
             >
               {enhanceVisibility ? "Disable enhance visibility" : "Enable enhance visibility"}
             </button>
             <button
+              type="button"
               onClick={() => setZoomToActive((v) => !v)}
               className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-700 transition hover:border-zinc-400"
             >
@@ -364,6 +366,7 @@ export function LandmarkEditor({
 
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Point selection</p>
           <button
+            type="button"
             onClick={() => setShowAllPoints((v) => !v)}
             className="mt-2 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-700 transition hover:border-zinc-400"
           >
@@ -372,6 +375,7 @@ export function LandmarkEditor({
           <div className="mt-2 max-h-52 space-y-1 overflow-auto pr-1">
             {points.map((point) => (
               <button
+                type="button"
                 key={point.key}
                 onClick={() => selectPoint(point.key)}
                 className={cn(
