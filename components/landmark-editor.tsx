@@ -39,7 +39,13 @@ export function LandmarkEditor({
   const [activeKey, setActiveKey] = useState<string | null>(saved[0]?.key ?? null);
   const [showAllPoints, setShowAllPoints] = useState(false);
 
-  const pointRadius = 7;
+  const [enhanceVisibility, setEnhanceVisibility] = useState(true);
+  const [zoomToActive, setZoomToActive] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(1.8);
+  const [nudgeStep, setNudgeStep] = useState(6);
+
+  const pointRadius = 10;
+  const hitRadius = 20;
 
   const imageRatio = useMemo(() => {
     if (!imageEl) return 1;
@@ -104,6 +110,19 @@ export function LandmarkEditor({
 
   const activePoint = points.find((p) => p.key === activeKey) ?? null;
 
+  const view = useMemo(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imageEl) return { scale: 1, tx: 0, ty: 0 };
+    if (!zoomToActive || showAllPoints || !activePoint) return { scale: 1, tx: 0, ty: 0 };
+
+    const scale = Math.max(1, Math.min(3, zoomLevel));
+    const baseX = (activePoint.x / imageEl.width) * canvas.width;
+    const baseY = (activePoint.y / imageEl.height) * canvas.height;
+    const tx = canvas.width / 2 - baseX * scale;
+    const ty = canvas.height / 2 - baseY * scale;
+    return { scale, tx, ty };
+  }, [activePoint, imageEl, showAllPoints, zoomLevel, zoomToActive]);
+
   useEffect(() => {
     void loadImage(image).then(setImageEl);
   }, [image]);
@@ -120,6 +139,9 @@ export function LandmarkEditor({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.filter = enhanceVisibility ? "contrast(1.18) brightness(1.06) saturate(1.02)" : "none";
+    ctx.setTransform(view.scale, 0, 0, view.scale, view.tx, view.ty);
     ctx.drawImage(imageEl, 0, 0, canvas.width, canvas.height);
 
     const renderPoints = showAllPoints ? points : points.filter((p) => p.key === activeKey);
@@ -141,17 +163,25 @@ export function LandmarkEditor({
         ctx.stroke();
       }
 
-      ctx.fillStyle = "#0a0a0a";
-      ctx.font = "11px sans-serif";
-      ctx.fillText(point.label, x - 3, y + 4);
+      ctx.font = "12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.55)";
+      ctx.strokeText(point.label, x - 4, y + 5);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(point.label, x - 4, y + 5);
     });
-  }, [points, imageEl, imageRatio, activeKey, showAllPoints]);
+    ctx.restore();
+  }, [points, imageEl, imageRatio, activeKey, showAllPoints, enhanceVisibility, view]);
 
   const eventToCanvasPoint = (evt: PointerEvent | React.PointerEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+  };
+
+  const canvasToScenePoint = (pt: { x: number; y: number }) => {
+    return { x: (pt.x - view.tx) / view.scale, y: (pt.y - view.ty) / view.scale };
   };
 
   const onPointerDown = (evt: React.PointerEvent<HTMLCanvasElement>) => {
@@ -162,11 +192,12 @@ export function LandmarkEditor({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const scene = canvasToScenePoint(coords);
     const hitCandidates = showAllPoints ? points : points.filter((p) => p.key === activeKey);
     const hit = hitCandidates.find((p) => {
       const px = (p.x / imageEl.width) * canvas.width;
       const py = (p.y / imageEl.height) * canvas.height;
-      return dist(px, py, coords.x, coords.y) <= pointRadius + 8;
+      return dist(px, py, scene.x, scene.y) <= hitRadius;
     });
 
     if (!hit) return;
@@ -181,12 +212,13 @@ export function LandmarkEditor({
     if (!coords) return;
 
     const canvas = canvasRef.current;
+    const scene = canvasToScenePoint(coords);
     const next = points.map((p) => {
       if (p.key !== dragging) return p;
       return {
         ...p,
-        x: (coords.x / canvas.width) * imageEl.width,
-        y: (coords.y / canvas.height) * imageEl.height,
+        x: (scene.x / canvas.width) * imageEl.width,
+        y: (scene.y / canvas.height) * imageEl.height,
       };
     });
 
@@ -215,6 +247,21 @@ export function LandmarkEditor({
     setPoints(next);
     onChange(next);
   };
+
+  useEffect(() => {
+    const onKeyDown = (evt: KeyboardEvent) => {
+      if (!activeKey) return;
+      if (evt.key !== "ArrowUp" && evt.key !== "ArrowDown" && evt.key !== "ArrowLeft" && evt.key !== "ArrowRight") return;
+      evt.preventDefault();
+      const step = (evt.shiftKey ? 4 : 1) * nudgeStep;
+      if (evt.key === "ArrowUp") nudge(0, -step);
+      if (evt.key === "ArrowDown") nudge(0, step);
+      if (evt.key === "ArrowLeft") nudge(-step, 0);
+      if (evt.key === "ArrowRight") nudge(step, 0);
+    };
+    window.addEventListener("keydown", onKeyDown, { passive: false });
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeKey, nudgeStep, imageEl, points]);
 
   const reset = async () => {
     setLoading(true);
@@ -274,6 +321,55 @@ export function LandmarkEditor({
         </div>
 
         <div className="rounded-2xl border border-white/40 bg-white/65 p-3 backdrop-blur-xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Visibility & controls</p>
+          <div className="mt-2 grid gap-2">
+            <button
+              onClick={() => setEnhanceVisibility((v) => !v)}
+              className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-700 transition hover:border-zinc-400"
+            >
+              {enhanceVisibility ? "Disable enhance visibility" : "Enable enhance visibility"}
+            </button>
+            <button
+              onClick={() => setZoomToActive((v) => !v)}
+              className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs font-medium text-zinc-700 transition hover:border-zinc-400"
+            >
+              {zoomToActive ? "Disable zoom-to-active point" : "Enable zoom-to-active point"}
+            </button>
+            {!showAllPoints && zoomToActive && (
+              <div className="rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs text-zinc-700">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Zoom</span>
+                  <span className="tabular-nums text-zinc-500">{zoomLevel.toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoomLevel}
+                  onChange={(e) => setZoomLevel(Number(e.target.value))}
+                  className="mt-2 w-full"
+                />
+              </div>
+            )}
+            <div className="rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs text-zinc-700">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Nudge step</span>
+                <span className="tabular-nums text-zinc-500">{nudgeStep}px</span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={30}
+                step={1}
+                value={nudgeStep}
+                onChange={(e) => setNudgeStep(Number(e.target.value))}
+                className="mt-2 w-full"
+              />
+              <p className="mt-1 text-[11px] text-zinc-500">Arrow keys nudge. Hold Shift for 4× step.</p>
+            </div>
+          </div>
+
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Point selection</p>
           <button
             onClick={() => setShowAllPoints((v) => !v)}
@@ -307,10 +403,18 @@ export function LandmarkEditor({
                 <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500" />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, -1)}>Up</Button>
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, 1)}>Down</Button>
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(-1, 0)}>Left</Button>
-                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(1, 0)}>Right</Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, -nudgeStep)}>
+                  Up
+                </Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, nudgeStep)}>
+                  Down
+                </Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(-nudgeStep, 0)}>
+                  Left
+                </Button>
+                <Button variant="outline" className="h-8 px-0" onClick={() => nudge(nudgeStep, 0)}>
+                  Right
+                </Button>
               </div>
             </div>
           )}

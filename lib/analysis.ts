@@ -20,10 +20,13 @@ function clampScore(score: number) {
 }
 
 function scoreFromRange(value: number, idealMin: number, idealMax: number, spread = 0.2) {
-  if (value >= idealMin && value <= idealMax) return 9;
+  // "Brutal" calibration: being in the ideal range is only slightly above average.
+  // High scores should be rare; most humans should land ~4-6 overall unless multiple metrics are elite.
+  const peak = 6.2;
+  if (value >= idealMin && value <= idealMax) return clampScore(peak);
   const target = value < idealMin ? idealMin : idealMax;
   const delta = Math.abs(value - target);
-  const score = 9 - (delta / spread) * 2.5;
+  const score = peak - (delta / spread) * 4.25;
   return clampScore(score);
 }
 
@@ -51,25 +54,54 @@ export function runAnalysis(front: LandmarkPoint[], side: LandmarkPoint[], gende
   const f = pointMap(front) as Record<string, P>;
   const s = pointMap(side) as Record<string, P>;
 
-  const ipd = Math.max(dist(f.left_pupil, f.right_pupil), 1);
-  const bizy = Math.max(dist(f.left_zygion, f.right_zygion), 1);
-  const faceHeight = Math.max(dist(f.nasion, f.chin_bottom), 1);
+  const safe = (p: P | undefined, fallback: P): P => (p && Number.isFinite(p.x) && Number.isFinite(p.y) ? p : fallback);
+  const SF = (key: keyof typeof f, fallback: P): P => safe(f[key as string], fallback);
+  const SS = (key: keyof typeof s, fallback: P): P => safe(s[key as string], fallback);
 
-  const fwhr = bizy / dist(f.upper_lip_center, f.nasion);
-  const bigonialRatio = dist(f.left_gonion, f.right_gonion) / bizy;
-  const leftTilt = Math.atan2(f.left_lateral_canthus.y - f.left_medial_canthus.y, f.left_lateral_canthus.x - f.left_medial_canthus.x) * (180 / Math.PI);
-  const rightTilt = Math.atan2(f.right_lateral_canthus.y - f.right_medial_canthus.y, f.right_lateral_canthus.x - f.right_medial_canthus.x) * (180 / Math.PI);
+  const ipd = Math.max(dist(SF("left_pupil", { x: 0, y: 0 }), SF("right_pupil", { x: 1, y: 0 })), 1);
+  const bizy = Math.max(dist(SF("left_zygion", { x: 0, y: 0 }), SF("right_zygion", { x: 1, y: 0 })), 1);
+  const faceHeight = Math.max(dist(SF("nasion", { x: 0, y: 0 }), SF("chin_bottom", { x: 0, y: 1 })), 1);
+
+  const fwhr = bizy / Math.max(dist(SF("upper_lip_center", { x: 0, y: 1 }), SF("nasion", { x: 0, y: 0 })), 1);
+  const bigonialRatio = Math.max(dist(SF("left_gonion", { x: 0, y: 0 }), SF("right_gonion", { x: 1, y: 0 })), 1) / bizy;
+  const leftTilt =
+    (Math.atan2(
+      SF("left_lateral_canthus", { x: 0, y: 0 }).y - SF("left_medial_canthus", { x: 0, y: 0 }).y,
+      SF("left_lateral_canthus", { x: 0, y: 0 }).x - SF("left_medial_canthus", { x: 0, y: 0 }).x,
+    ) *
+      180) /
+    Math.PI;
+  const rightTilt =
+    (Math.atan2(
+      SF("right_lateral_canthus", { x: 0, y: 0 }).y - SF("right_medial_canthus", { x: 0, y: 0 }).y,
+      SF("right_lateral_canthus", { x: 0, y: 0 }).x - SF("right_medial_canthus", { x: 0, y: 0 }).x,
+    ) *
+      180) /
+    Math.PI;
   const canthalTilt = -(leftTilt + rightTilt) / 2;
-  const noseWidthHeight = dist(f.left_nose_wing, f.right_nose_wing) / dist(f.nasion, f.philtrum_top);
-  const chinPhiltrum = dist(f.philtrum_bottom, f.chin_bottom) / Math.max(dist(f.philtrum_top, f.philtrum_bottom), 1);
+  const noseWidthHeight =
+    Math.max(dist(SF("left_nose_wing", { x: 0, y: 0 }), SF("right_nose_wing", { x: 1, y: 0 })), 1) /
+    Math.max(dist(SF("nasion", { x: 0, y: 0 }), SF("philtrum_top", { x: 0, y: 1 })), 1);
+  const chinPhiltrum =
+    Math.max(dist(SF("philtrum_bottom", { x: 0, y: 0 }), SF("chin_bottom", { x: 0, y: 1 })), 1) /
+    Math.max(dist(SF("philtrum_top", { x: 0, y: 0 }), SF("philtrum_bottom", { x: 0, y: 1 })), 1);
   const eyeSpacing = ipd / bizy;
-  const lowerThird = dist(f.philtrum_bottom, f.chin_bottom) / faceHeight;
+  const lowerThird = Math.max(dist(SF("philtrum_bottom", { x: 0, y: 0 }), SF("chin_bottom", { x: 0, y: 1 })), 1) / faceHeight;
 
-  const gonialAngle = angle(s.tragion, s.gonion, s.soft_tissue_pogonion);
-  const nasolabialAngle = angle(s.columella ?? s.pronasale, s.subnasale, s.labrale_superior);
-  const eLineX = (s.pronasale.x + s.soft_tissue_pogonion.x) / 2;
-  const chinProjection = (s.soft_tissue_pogonion.x - eLineX) / Math.max(dist(s.nasion, s.subnasale), 1);
-  const facialConvexity = angle(s.glabella, s.subnasale, s.soft_tissue_pogonion);
+  const gonialAngle = angle(
+    SS("tragion", { x: 0, y: 0 }),
+    SS("gonion", { x: 1, y: 0 }),
+    SS("soft_tissue_pogonion", { x: 2, y: 0 }),
+  );
+  // Columella isn't currently captured by our side-landmark set; use pronasale as the anterior nasal point.
+  const nasolabialAngle = angle(
+    SS("pronasale", { x: 0, y: 0 }),
+    SS("subnasale", { x: 1, y: 0 }),
+    SS("labrale_superior", { x: 2, y: 0 }),
+  );
+  const eLineX = (SS("pronasale", { x: 0, y: 0 }).x + SS("soft_tissue_pogonion", { x: 1, y: 0 }).x) / 2;
+  const chinProjection = (SS("soft_tissue_pogonion", { x: 0, y: 0 }).x - eLineX) / Math.max(dist(SS("nasion", { x: 0, y: 0 }), SS("subnasale", { x: 0, y: 1 })), 1);
+  const facialConvexity = angle(SS("glabella", { x: 0, y: 0 }), SS("subnasale", { x: 1, y: 0 }), SS("soft_tissue_pogonion", { x: 2, y: 0 }));
 
   const metrics: MetricResult[] = [];
 
