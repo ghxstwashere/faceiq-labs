@@ -8,6 +8,7 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 export function Button({ className, variant = "primary", ...props }: ButtonProps) {
   return (
     <button
+      type={props.type ?? "button"}
       className={cn(
         "inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
         variant === "primary" && "bg-zinc-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] hover:bg-zinc-800",
