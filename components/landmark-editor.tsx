@@ -291,14 +291,6 @@ export function LandmarkEditor({
     }
   };
 
-  const zoomStyle = activePoint
-    ? {
-        backgroundImage: `url(${image})`,
-        backgroundSize: "250% 250%",
-        backgroundPosition: `${(activePoint.x / (imageEl?.width ?? 1)) * 100}% ${(activePoint.y / (imageEl?.height ?? 1)) * 100}%`,
-      }
-    : undefined;
-
   return (
     <div className="space-y-4">
       {loading && (
@@ -398,10 +390,6 @@ export function LandmarkEditor({
             <div className="mt-3 space-y-2 rounded-lg border border-zinc-200 bg-white p-2.5 text-xs text-zinc-600">
               <p className="font-semibold text-zinc-800">Active: {activePoint.name}</p>
               <p>x: {Math.round(activePoint.x)} | y: {Math.round(activePoint.y)}</p>
-              <div className="relative h-28 overflow-hidden rounded-lg border border-zinc-200" style={zoomStyle}>
-                <div className="absolute inset-0 border-2 border-amber-400/70" />
-                <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500" />
-              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" className="h-8 px-0" onClick={() => nudge(0, -nudgeStep)}>
                   Up
